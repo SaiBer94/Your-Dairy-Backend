@@ -4,6 +4,57 @@ const User = require("../Models/user.model")
 const Note = require("../Models/note.model")
 
 
+const getUser = async (req,res) => {
+
+    const userId = req.user._id.toString(); 
+
+    const isUser = await User.findOne({_id:userId});
+
+    if(!isUser) return res.status(404).json({message:"User not found"});
+
+    console.log(isUser)
+
+    return res.status(200).json({
+        user:{fullname: isUser.fullName, email:isUser.email, "_id": isUser._id, createdOn: isUser.createdOn},
+        message: "User Found"
+    })
+}
+
+const signUp = async (req, res) => {
+    const { fullName, email, password } = req.body;
+
+    // Validate the required fields
+    if (!fullName) return res.status(400).json({ error: true, message: "Full name is required" });
+    if (!email) return res.status(400).json({ error: true, message: "Email is required" });
+    if (!password) return res.status(400).json({ error: true, message: "Password is required" });
+
+    try {
+        // Check if user already exists
+        const isUser = await User.findOne({ email });
+        if (isUser) return res.status(400).json({ error: true, message: "User already exists" });
+
+        // Hash the password before saving
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Create new user
+        const user = new User({ fullName, email, password: hashedPassword });
+        await user.save();
+
+        // Create JWT token
+        const payload = { userId: user._id, email: user.email };
+        const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
+
+        // Send success response with the token
+        return res.status(200).json({
+            error: false, user, accessToken, message: "Registration completed",
+        });
+    } catch (error) {
+        console.error("Error during account creation:", error);
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+};
+
 const signIn = async (req, res) => {
     const { email, password } = req.body;
 
@@ -47,43 +98,6 @@ const signIn = async (req, res) => {
         });
     } catch (error) {
         console.error("Error during sign-in:", error);
-        return res.status(500).json({ error: true, message: "Internal Server Error" });
-    }
-};
-
-
-
-const signUp = async (req, res) => {
-    const { fullName, email, password } = req.body;
-
-    // Validate the required fields
-    if (!fullName) return res.status(400).json({ error: true, message: "Full name is required" });
-    if (!email) return res.status(400).json({ error: true, message: "Email is required" });
-    if (!password) return res.status(400).json({ error: true, message: "Password is required" });
-
-    try {
-        // Check if user already exists
-        const isUser = await User.findOne({ email });
-        if (isUser) return res.status(400).json({ error: true, message: "User already exists" });
-
-        // Hash the password before saving
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // Create new user
-        const user = new User({ fullName, email, password: hashedPassword });
-        await user.save();
-
-        // Create JWT token
-        const payload = { userId: user._id, email: user.email };
-        const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
-
-        // Send success response with the token
-        return res.status(200).json({
-            error: false, user, accessToken, message: "Registration completed",
-        });
-    } catch (error) {
-        console.error("Error during account creation:", error);
         return res.status(500).json({ error: true, message: "Internal Server Error" });
     }
 };
@@ -192,8 +206,116 @@ const editNote = async (req, res) => {
     }
 };
 
+const getAllNotes = async (req,res) => {
+    console.log("reached backend")
+    try {
+        if (!req.user) {
+            console.log("User is not authenticated");
+            return res.status(401).json({ message: "User not authenticated" });
+        }
+
+        const userId = req.user._id;
+
+        if (!userId) {
+            console.log("User ID is missing");
+            return res.status(400).json({ message: "Invalid user ID" });
+        }
+
+        console.log("User ID:", userId);
+
+        const notes = await Note.find({ userId: userId.toString() }).sort({ isPinned: -1 });
+        if (notes.length === 0) {
+            console.log("No notes found");
+            return res.status(404).json({ message: "No notes to show" });
+        }
+
+        console.log("Notes retrieved:", notes);
+
+        return res.status(200).json({
+           error: false,
+           notes,
+           message: "All notes retrieved"
+        })
+    } catch (error) {
+       return res.status(500).json({
+        error: true,
+        message: "Internal Server Error"
+       }) 
+    }
+}
+
+const deleteNote = async(req,res) => {
+    const noteId = req.params.noteId;
+    const {user} = req.user;
+    const userId = req.user._id;
+
+    try {
+        const note = await Note.findOne({_id:noteId, userId:userId});
+
+        if(!note) return res.status(404).json({error: true, message: "Note not found"});
+
+        await Note.deleteOne({_id:noteId, userId:userId});
+
+        return res.status(200).json({
+            error: false,
+            message: "Note deleted successfully"
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            error: true,
+            message: "Internal Server Error"
+        })
+    }
+}
+
+const togglePinned = async(req, res) => {
+    if (!req.user) {
+        console.log("User is not authenticated");
+        return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    const noteId = req.params.noteId;
+    const { isPinned } = req.body;
+    const userId = req.user._id.toString(); 
+
+    if (!userId) {
+        console.log("User ID is missing");
+        return res.status(400).json({ message: "Invalid user" });
+    }
+
+    try {
+        console.log("Searching for note");
+        const note = await Note.findOne({ _id: noteId, userId: userId });
+
+        if (!note) {
+            console.log("Note not found");
+            return res.status(404).json({ message: "Note not found" });
+        } else {
+            console.log("Note found");
+        }
+
+        if (isPinned) {note.isPinned = isPinned}
+
+        await note.save();
+        console.log("Note saved successfully");
+
+        return res.status(200).json({
+            error: false,
+            note,
+            message: "Pinned successfully toggled"
+        });
+    } catch (error) {
+        console.error("Error updating note:", error);
+        return res.status(500).json({
+            error: true,
+            message: "Internal server error"
+        });
+    }
+
+
+}
 
 
 
-
-module.exports = {signUp, signIn, addNote, editNote}
+module.exports = {signUp, signIn, addNote, editNote, getAllNotes, deleteNote, togglePinned, getUser}
