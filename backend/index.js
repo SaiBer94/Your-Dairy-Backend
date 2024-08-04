@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const express = require('express');
 const cors = require('cors');
 
+
 const app = express();
 const userRoute = require('./Routes/user.route')
 
@@ -30,6 +31,8 @@ mongoose.connect(process.env.MONGO_URI)
   .catch((err) => {
     console.error('DB Connection Error:', err);
   });
+
+
 
 // Export the app for testing or further use
 module.exports = app;
