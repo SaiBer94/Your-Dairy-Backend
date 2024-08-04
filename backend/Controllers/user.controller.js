@@ -89,8 +89,9 @@ const signUp = async (req, res) => {
 };
 
 const addNote = async (req, res) => {
-    const { title, content, tags } = req.body;
-    const { userId } = req.user; 
+    console.log("Reached addNote backend");
+    const { title, content, tags, isPinned } = req.body;
+    const { userId } = req.user;
 
     if (!title) {
         console.log("Title is required");
@@ -103,7 +104,8 @@ const addNote = async (req, res) => {
             title,
             content,
             tags: tags || [],
-            userId, 
+            isPinned: isPinned || false,
+            userId,
         });
 
         await note.save();
