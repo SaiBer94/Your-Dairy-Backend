@@ -16,7 +16,6 @@ const signIn = async (req, res) => {
         // Find the user by email
         const userInfo = await User.findOne({ email });
 
-        // If user is not found, send an error response
         if (!userInfo) {
             console.log("User not found!");
             return res.status(400).json({ message: "User not found!" });
@@ -91,25 +90,32 @@ const signUp = async (req, res) => {
 
 const addNote = async (req, res) => {
     const { title, content, tags } = req.body;
-    const { userId } = req.user; // Extract userId from the token
+    const { userId } = req.user; 
 
-    if (!title) return res.status(400).json({ message: "Title required!" });
+    if (!title) {
+        console.log("Title is required");
+        return res.status(400).json({ message: "Title required!" });
+    }
 
     try {
+        console.log("Creating new note...");
         const note = new Note({
             title,
             content,
             tags: tags || [],
-            userId, // Use userId from token
+            userId, 
         });
 
         await note.save();
+        console.log("Note saved successfully");
+
         return res.json({
             error: false,
             note,
             message: "Note added successfully"
         });
     } catch (error) {
+        console.error("Error saving note:", error);
         return res.status(500).json({
             error: true,
             message: "Internal server error"

@@ -8,10 +8,6 @@ const app = express();
 const userRoute = require('./Routes/user.route')
 
 
-/*const User = require("./Models/user.model");
-const jwt = require("jsonwebtoken");
-const { authToken } = require("./Utils/utilities");
-const { createAccount } = require("./Controllers/user.controller");*/
 
 app.use(express.json());
 app.use(cors({ origin: '*' }));
