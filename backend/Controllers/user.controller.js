@@ -125,6 +125,75 @@ const addNote = async (req, res) => {
     }
 };
 
+const editNote = async (req, res) => {
+    console.log("Reached backend edit");
+
+    if (!req.user) {
+        console.log("User is not authenticated");
+        return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    const noteId = req.params.noteId;
+    const { title, content, tags, isPinned } = req.body;
+    const userId = req.user._id.toString(); 
+
+    if (!userId) {
+        console.log("User ID is missing");
+        return res.status(400).json({ message: "Invalid user" });
+    }
+
+    if (!title && !content && !tags) {
+        console.log("No changes were made");
+        return res.status(400).json({ message: "No changes were made" });
+    }
+
+    try {
+        console.log("Searching for note");
+        const note = await Note.findOne({ _id: noteId, userId: userId });
+
+        if (!note) {
+            console.log("Note not found");
+            return res.status(404).json({ message: "Note not found" });
+        } else {
+            console.log("Note found");
+        }
+
+        if (title) {
+            note.title = title;
+            console.log("Title updated");
+        }
+        if (content) {
+            note.content = content;
+            console.log("Content updated");
+        }
+        if (tags) {
+            note.tags = tags;
+            console.log("Tags updated");
+        }
+        if (isPinned !== undefined) {
+            note.isPinned = isPinned;
+            console.log("IsPinned updated");
+        }
+
+        await note.save();
+        console.log("Note saved successfully");
+
+        return res.status(200).json({
+            error: false,
+            note,
+            message: "Note updated successfully"
+        });
+    } catch (error) {
+        console.error("Error updating note:", error);
+        return res.status(500).json({
+            error: true,
+            message: "Internal server error"
+        });
+    }
+};
 
 
-module.exports = {signUp, signIn, addNote}
+
+
+
+module.exports = {signUp, signIn, addNote, editNote}
